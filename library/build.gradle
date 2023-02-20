@@ -1,0 +1,101 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
+}
+
+android {
+    namespace 'kurante.gdxscopedstorage'
+    compileSdk 33
+
+    defaultConfig {
+        minSdk 19
+        targetSdk 33
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    api "com.badlogicgames.gdx:gdx-backend-android:1.11.0"
+    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'androidx.core:core-ktx:+'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+ext {
+    group 'com.github.kurante2801'
+    publishedGroupId = 'com.github.kurante2801'
+    libraryName = 'libGDX Scoped Storage'
+    artifact = 'libgdxscopedstorage'
+
+    libraryDescription = 'Wrapper for Android\'s Storage Access Framework (SAF)'
+
+    siteUrl = 'https://github.com/kurante2801/gdx-scopedstorage'
+    gitUrl = 'https://github.com/kurante2801/gdx-scopedstorage.git'
+
+    libraryVersion = "$VERSION_NAME"
+    version = libraryVersion
+
+    developerId = 'kurante2801'
+    developerName = 'Kurante'
+    developerEmail = 'kurante2801@gmail.com'
+
+    licenseName = 'The MIT License'
+    licenseUrl = 'https://opensource.org/licenses/MIT'
+    allLicenses = ["MIT"]
+}
+
+
+
+publishing {
+    publications {
+        gpr(MavenPublication) {
+            groupId = publishedGroupId
+            artifactId = artifact
+            version = libraryVersion
+            artifact "$buildDir/outputs/aar/${project.name}-release.aar"
+
+            pom {
+                name = libraryName
+                description = libraryDescription
+                url = siteUrl
+                licenses {
+                    license {
+                        name = licenseName
+                        url = licenseUrl
+                    }
+                }
+                developers {
+                    developer {
+                        id = developerId
+                        name = developerName
+                        email = developerEmail
+                    }
+                }
+                scm {
+                    url = gitUrl
+                }
+            }
+        }
+    }
+}
