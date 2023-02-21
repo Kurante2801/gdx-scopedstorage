@@ -1,11 +1,8 @@
 package kurante.gdxscopedstorage
 
-import android.content.ContentResolver
 import android.net.Uri
-import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import com.badlogic.gdx.Files
-import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.utils.GdxRuntimeException
@@ -30,10 +27,15 @@ class DocumentHandle : FileHandle {
 
     companion object {
         // You can construct a DocumentHandle out of its path() function
+        @Throws(GdxRuntimeException::class)
         @JvmStatic
         fun valueOf(application: AndroidApplication, uri: String): DocumentHandle {
-            val document = DocumentFile.fromTreeUri(application, Uri.parse(uri))
-            return DocumentHandle(application, document!!)
+            try {
+                val document = DocumentFile.fromTreeUri(application, Uri.parse(uri))
+                return DocumentHandle(application, document!!)
+            } catch (e: Exception) {
+                throw GdxRuntimeException("Could not create a DocumentHandle", e)
+            }
         }
 
         private val chars = "abcdefghijklmnopqrstuvwxyz".toCharArray()
@@ -108,15 +110,16 @@ class DocumentHandle : FileHandle {
     }
 
     override fun read(): InputStream {
-        if (exists()) throw GdxRuntimeException("Android document does not exist: $document")
+        if (!exists()) throw GdxRuntimeException("Android document does not exist: ${invalidFileData?.path ?: document}")
         if (isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: $document")
         if (!document.canRead()) throw GdxRuntimeException("Can't read document: $document")
 
         try {
             val input = application.contentResolver.openInputStream(document.uri)
-            return input ?: throw GdxRuntimeException("Could not open InputStream: $document")
+            return input
+                ?: throw GdxRuntimeException("Could not open InputStream: $document")
         } catch (e: FileNotFoundException) {
-            throw GdxRuntimeException("Could not open InputStream: $document", e)
+            throw GdxRuntimeException("Error reading document: $document", e)
         }
     }
 
@@ -128,6 +131,26 @@ class DocumentHandle : FileHandle {
         }
     }
 
+    override fun readString(charset: String?): String {
+        val reader = if (charset == null)
+            InputStreamReader(read())
+        else
+            InputStreamReader(read(), charset)
+
+        reader.use { input ->
+            return input.readText()
+        }
+    }
+
+    override fun readBytes(): ByteArray {
+        read().use { input ->
+            ByteArrayOutputStream().use { output ->
+                input.copyTo(output)
+                return output.toByteArray()
+            }
+        }
+    }
+
     override fun write(append: Boolean): OutputStream {
         if (isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: $document")
 
@@ -135,10 +158,10 @@ class DocumentHandle : FileHandle {
             // This document doesn't exist, so we use the parent's document to write a sub document
             if (!exists()) {
                 val parent = invalidFileData?.parent ?: document.parentFile
-                    ?: throw GdxRuntimeException("Could not get document's parent (needed to write document because it doesn't exist): $document")
+                    ?: throw GdxRuntimeException("Could not get document's parent (needed to write document because it doesn't exist): $this")
                 document = createChild(parent, name())
-                    ?: throw GdxRuntimeException("Could not create document to write to: $document")
-                invalidFileData = null
+                    ?: throw GdxRuntimeException("Could not create document to write to: $parent")
+                invalidFileData = null // We exist now, so we don't need to hold this anymore
             }
 
             // https://developer.android.com/reference/android/os/ParcelFileDescriptor#parseMode(java.lang.String)
@@ -158,8 +181,14 @@ class DocumentHandle : FileHandle {
 
     }
 
+    override fun writeBytes(bytes: ByteArray, append: Boolean) {
+        write(append).use { output ->
+            output.write(bytes)
+        }
+    }
+
     override fun list(): Array<FileHandle> {
-        if (!exists()) return arrayOf()
+        if (!exists()) return arrayOf() // Would throwing an exception be more appropriate?
         return document.listFiles().map { DocumentHandle(application, it) }.toTypedArray()
     }
 
@@ -174,10 +203,13 @@ class DocumentHandle : FileHandle {
         }
 
         // We can't create a DocumentFile out of a file that doesn't exist because we crash
-        // so we just hold the given name and the parent DocumentFile,
-        // then on the write() function we create the file and then write to it
+        // so we just hold some data and the parent DocumentFile to create the document when needed
         val path = document.uri.toString() + Uri.encode("/$name")
         return DocumentHandle(application, InvalidFileData(name, path, document))
+    }
+
+    override fun sibling(name: String): FileHandle {
+        return parent().child(name)
     }
 
     override fun parent(): FileHandle {
@@ -196,11 +228,12 @@ class DocumentHandle : FileHandle {
 
     override fun deleteDirectory(): Boolean = if (exists()) document.delete() else false
 
-    override fun emptyDirectory() = emptyDirectory(false)
+    override fun emptyDirectory() { deleteDirectory() }
+
     override fun emptyDirectory(preserveTree: Boolean) {
-        if (isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: $document")
+        if (!isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: $document")
         if (!exists()) return
-        emptyDirectory(document, preserveTree) // TODO: Test
+        emptyDirectory(document, preserveTree)
     }
 
     override fun copyTo(dest: FileHandle) {
@@ -212,12 +245,22 @@ class DocumentHandle : FileHandle {
         }
 
         if (!isDirectory) {
+            if (dest.exists() && dest.isDirectory)
+                throw GdxRuntimeException("Destination exists but is a directory: $dest")
             read().copyTo(dest.write(false))
-            return
-        }
+        } else {
+            if (dest.exists() && !dest.isDirectory)
+                throw GdxRuntimeException("Destination exists but is a file: $dest")
 
-        TODO("copyTo is not implemented for directories yet")
+            TODO("copyTo is not implemented for directories yet")
+        }
     }
+
+    override fun moveTo(dest: FileHandle) {
+        TODO("moveTo is not implemented yet")
+    }
+
+    override fun length(): Long = if (exists()) document.length() else 0L
 
     override fun lastModified(): Long {
         if (!exists()) throw GdxRuntimeException("Cannot get the last modifier time from a file that doesn't exist")
@@ -232,4 +275,11 @@ class DocumentHandle : FileHandle {
 
     @Suppress("RedundantOverride")
     override fun hashCode(): Int = super.hashCode()
+
+    override fun toString(): String {
+        return if (!exists())
+            Uri.decode(invalidFileData!!.path)
+        else
+            document.uri.path!!
+    }
 }
