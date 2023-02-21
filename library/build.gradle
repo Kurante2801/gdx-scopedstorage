@@ -32,8 +32,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     kotlinOptions {
         jvmTarget = '1.8'
@@ -44,6 +44,7 @@ dependencies {
     api "com.badlogicgames.gdx:gdx-backend-android:1.11.0"
     api "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
     api 'androidx.documentfile:documentfile:1.0.1'
+    api 'androidx.activity:activity-ktx:1.6.1'
 }
 
 publishing {

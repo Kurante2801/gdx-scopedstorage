@@ -5,10 +5,11 @@ import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
 import com.badlogic.gdx.backends.android.AndroidApplication
 import kurante.gdxscopedstorage.DocumentHandle
+import kurante.gdxscopedstorage.launchers.ActivityLauncher
 
 class DocumentTreeRequest(
     override val requestCode: Int,
-    private val application: AndroidApplication,
+    private val launcher: ActivityLauncher,
     private val makePersistent: Boolean,
     private val callback: DocumentTreeCallback,
 ) : ActivityRequest {
@@ -25,9 +26,9 @@ class DocumentTreeRequest(
         }
 
         if (makePersistent)
-            application.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            launcher.context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
 
-        callback.run(DocumentHandle(application, DocumentFile.fromTreeUri(application, uri)!!))
+        callback.run(DocumentHandle(launcher.context, DocumentFile.fromTreeUri(launcher.context, uri)!!))
     }
 }
 

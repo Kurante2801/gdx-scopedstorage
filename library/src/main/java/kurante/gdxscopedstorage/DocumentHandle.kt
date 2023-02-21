@@ -1,28 +1,31 @@
 package kurante.gdxscopedstorage
 
+import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import com.badlogic.gdx.Files
-import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.utils.GdxRuntimeException
 import kurante.gdxscopedstorage.util.InvalidFileData
 import kurante.gdxscopedstorage.util.RealPathUtil
 import java.io.*
 
+// You could use this class on its own if you can supply your own uri inside
+// DocumentHandle.valueOf (and also copying InvalidFileData and RealPathUtil classes)
+
 @Suppress("unused")
 class DocumentHandle : FileHandle {
-    private val application: AndroidApplication
+    private val context: Context
     var document: DocumentFile private set
     private var invalidFileData: InvalidFileData? = null
 
     // Constructor needed so document has a private setter
-    constructor(application: AndroidApplication, document: DocumentFile) : super() {
-        this.application = application
+    constructor(context: Context, document: DocumentFile) : super() {
+        this.context = context
         this.document = document
     }
 
-    constructor(application: AndroidApplication, invalidFileData: InvalidFileData) : this(application, DocumentFile.fromSingleUri(application, Uri.EMPTY)!!) {
+    constructor(context: Context, invalidFileData: InvalidFileData) : this(context, DocumentFile.fromSingleUri(context, Uri.EMPTY)!!) {
         this.invalidFileData = invalidFileData
     }
 
@@ -30,10 +33,13 @@ class DocumentHandle : FileHandle {
         // You can construct a DocumentHandle out of its path() function
         @Throws(GdxRuntimeException::class)
         @JvmStatic
-        fun valueOf(application: AndroidApplication, uri: String): DocumentHandle {
+        fun valueOf(context: Context, uri: String): DocumentHandle {
             try {
-                val document = DocumentFile.fromTreeUri(application, Uri.parse(uri))
-                return DocumentHandle(application, document!!)
+                var document = DocumentFile.fromSingleUri(context, Uri.parse(uri))!!
+                // Convert to folder
+                if (document.isDirectory)
+                   document = DocumentFile.fromTreeUri(context, Uri.parse(uri))!!
+                return DocumentHandle(context, document)
             } catch (e: Exception) {
                 throw GdxRuntimeException("Could not create a DocumentHandle", e)
             }
@@ -79,7 +85,7 @@ class DocumentHandle : FileHandle {
         }
 
         @JvmStatic
-        fun copyDirectory(application: AndroidApplication, source: DocumentFile, dest: DocumentFile) {
+        fun copyDirectory(context: Context, source: DocumentFile, dest: DocumentFile) {
             if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: $source")
             if (!dest.isDirectory) throw GdxRuntimeException("Destination of copyDirectory isn't a directory: $source")
 
@@ -88,16 +94,16 @@ class DocumentHandle : FileHandle {
                     val other = dest.findFile(child.name!!) ?: dest.createDirectory(child.name!!)
                         ?: throw GdxRuntimeException("Could not create directory: ${child.name}")
                     if (!other.isDirectory) throw GdxRuntimeException("Could not copy directory because destination contains a file with the same name: ${child.name}")
-                    copyDirectory(application, child, other)
+                    copyDirectory(context, child, other)
                 } else {
                     val other = dest.findFile(child.name!!) ?: createChild(dest, child.name!!)
                         ?: throw GdxRuntimeException("Could not create file: ${child.name}")
                     if (!other.isFile) throw GdxRuntimeException("Could not copy file because destination contains a directory with the same name: ${child.name}")
 
                     try {
-                        val output = application.contentResolver.openOutputStream(other.uri)
+                        val output = context.contentResolver.openOutputStream(other.uri)
                             ?: throw GdxRuntimeException("Could not open OutputStream: $other")
-                        val input = application.contentResolver.openInputStream(child.uri)
+                        val input = context.contentResolver.openInputStream(child.uri)
                             ?: throw GdxRuntimeException("Could not open InputStream: $other")
                         input.use {
                             it.copyTo(output)
@@ -120,11 +126,11 @@ class DocumentHandle : FileHandle {
             Uri.parse(invalidFileData!!.path)
         else
             document.uri
-        return RealPathUtil.getRealPath(application, uri)
+        return RealPathUtil.getRealPath(context, uri)
     }
 
     // You can feed this to DocumentHandle.valueOf
-    override fun path(): String = invalidFileData?.path ?: document.uri.path!!
+    override fun path(): String = invalidFileData?.path ?: document.uri.toString()
 
     override fun name(): String = invalidFileData?.name ?: document.name!!
 
@@ -151,12 +157,12 @@ class DocumentHandle : FileHandle {
     }
 
     override fun read(): InputStream {
-        if (!exists()) throw GdxRuntimeException("Android document does not exist: ${invalidFileData?.path ?: document}")
-        if (isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: $document")
-        if (!document.canRead()) throw GdxRuntimeException("Can't read document: $document")
+        if (!exists()) throw GdxRuntimeException("Android document does not exist: ${path()}")
+        if (document.isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: ${path()}")
+        if (!document.canRead()) throw GdxRuntimeException("Can't read document: ${path()}")
 
         try {
-            val input = application.contentResolver.openInputStream(document.uri)
+            val input = context.contentResolver.openInputStream(document.uri)
             return input
                 ?: throw GdxRuntimeException("Could not open InputStream: $document")
         } catch (e: FileNotFoundException) {
@@ -207,7 +213,7 @@ class DocumentHandle : FileHandle {
 
             // https://developer.android.com/reference/android/os/ParcelFileDescriptor#parseMode(java.lang.String)
             val mode = if (append) "wa" else "rwt"
-            return application.contentResolver.openOutputStream(document.uri, mode)
+            return context.contentResolver.openOutputStream(document.uri, mode)
                 ?: throw GdxRuntimeException("Could not open OutputStream: $document")
         } catch (e: FileNotFoundException) {
             throw GdxRuntimeException("Could not write to document: $document", e)
@@ -230,23 +236,22 @@ class DocumentHandle : FileHandle {
 
     override fun list(): Array<FileHandle> {
         if (!exists()) return arrayOf() // Would throwing an exception be more appropriate?
-        return document.listFiles().map { DocumentHandle(application, it) }.toTypedArray()
+        return document.listFiles().map { DocumentHandle(context, it) }.toTypedArray()
     }
 
-    override fun isDirectory(): Boolean = invalidFileData == null && document.isDirectory
+    override fun isDirectory(): Boolean = exists() && !document.isFile
 
     override fun child(name: String): FileHandle {
         if (!isDirectory) throw GdxRuntimeException("Cannot get the child of a file: $document")
 
-        for (file in document.listFiles()) {
-            if (file.name == name)
-                return DocumentHandle(application, file)
-        }
+        val file = document.findFile(name)
+        if (file != null)
+            return DocumentHandle(context, file)
 
         // We can't create a DocumentFile out of a file that doesn't exist because we crash
         // so we just hold some data and the parent DocumentFile to create the document when needed
         val path = document.uri.toString() + Uri.encode("/$name")
-        return DocumentHandle(application, InvalidFileData(name, path, document))
+        return DocumentHandle(context, InvalidFileData(name, path, document))
     }
 
     override fun sibling(name: String): FileHandle {
@@ -256,7 +261,7 @@ class DocumentHandle : FileHandle {
     override fun parent(): FileHandle {
         val parent = invalidFileData?.parent ?: document.parentFile
             ?: throw GdxRuntimeException("Could not get parent document: $document")
-        return DocumentHandle(application, parent)
+        return DocumentHandle(context, parent)
     }
 
     override fun mkdirs() {
@@ -302,7 +307,7 @@ class DocumentHandle : FileHandle {
             // Copy directory
             if (!dest.isDirectory)
                 throw GdxRuntimeException("Destination exists but is a file: $dest")
-            copyDirectory(application, document, dest.document)
+            copyDirectory(context, document, dest.document)
         }
     }
 
@@ -327,10 +332,5 @@ class DocumentHandle : FileHandle {
     @Suppress("RedundantOverride")
     override fun hashCode(): Int = super.hashCode()
 
-    override fun toString(): String {
-        return if (invalidFileData != null)
-            Uri.decode(invalidFileData!!.path)
-        else
-            document.uri.path!!
-    }
+    override fun toString(): String = path()
 }
