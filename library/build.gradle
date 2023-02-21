@@ -46,56 +46,33 @@ dependencies {
     api 'androidx.documentfile:documentfile:1.0.1'
 }
 
-ext {
-    group 'com.github.kurante2801'
-    publishedGroupId = 'com.github.kurante2801'
-    libraryName = 'libGDX Scoped Storage'
-    artifact = 'libgdxscopedstorage'
-
-    libraryDescription = 'Wrapper for Android\'s Storage Access Framework (SAF)'
-
-    siteUrl = 'https://github.com/kurante2801/gdx-scopedstorage'
-    gitUrl = 'https://github.com/kurante2801/gdx-scopedstorage.git'
-
-    libraryVersion = "$VERSION_NAME"
-    version = libraryVersion
-
-    developerId = 'kurante2801'
-    developerName = 'Kurante'
-    developerEmail = 'kurante2801@gmail.com'
-
-    licenseName = 'The MIT License'
-    licenseUrl = 'https://opensource.org/licenses/MIT'
-    allLicenses = ["MIT"]
-}
-
 publishing {
     publications {
         gpr(MavenPublication) {
-            groupId = publishedGroupId
-            artifactId = artifact
-            version = libraryVersion
+            groupId = "com.github.kurante2801"
+            artifactId = "gdx-scopedstorage"
+            version = "$VERSION_NAME"
             artifact "$buildDir/outputs/aar/${project.name}-release.aar"
 
             pom {
-                name = libraryName
-                description = libraryDescription
-                url = siteUrl
+                name = "libGDX Scoped Storage"
+                description = "Wrapper for Android's Storage Access Framework (SAF)"
+                url = "https://github.com/kurante2801/gdx-scopedstorage"
                 licenses {
                     license {
-                        name = licenseName
-                        url = licenseUrl
+                        name = 'The MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
                     }
                 }
                 developers {
                     developer {
-                        id = developerId
-                        name = developerName
-                        email = developerEmail
+                        id = 'kurante2801'
+                        name = 'Kurante'
+                        email = 'kurante2801@gmail.com'
                     }
                 }
                 scm {
-                    url = gitUrl
+                    url = "https://github.com/kurante2801/gdx-scopedstorage.git"
                 }
             }
         }
