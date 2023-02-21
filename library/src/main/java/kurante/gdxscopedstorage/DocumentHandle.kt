@@ -76,6 +76,39 @@ class DocumentHandle : FileHandle {
                     child.delete()
             }
         }
+
+        @JvmStatic
+        fun copyDirectory(application: AndroidApplication, source: DocumentFile, dest: DocumentFile) {
+            if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: $source")
+            if (!dest.isDirectory) throw GdxRuntimeException("Destination of copyDirectory isn't a directory: $source")
+
+
+
+            for (child in source.listFiles()) {
+                if (child.isDirectory) {
+                    val other = dest.findFile(child.name!!) ?: dest.createDirectory(child.name!!)
+                        ?: throw GdxRuntimeException("Could not create directory: ${child.name}")
+                    if (!other.isDirectory) throw GdxRuntimeException("Could not copy directory because destination contains a file with the same name: ${child.name}")
+                    copyDirectory(application, child, other)
+                } else {
+                    val other = dest.findFile(child.name!!) ?: createChild(dest, child.name!!)
+                        ?: throw GdxRuntimeException("Could not create file: ${child.name}")
+                    if (!other.isFile) throw GdxRuntimeException("Could not copy file because destination contains a directory with the same name: ${child.name}")
+
+                    try {
+                        val output = application.contentResolver.openOutputStream(other.uri)
+                            ?: throw GdxRuntimeException("Could not open OutputStream: $other")
+                        val input = application.contentResolver.openInputStream(child.uri)
+                            ?: throw GdxRuntimeException("Could not open InputStream: $other")
+                        input.use {
+                            it.copyTo(output)
+                        }
+                    } catch (e: Exception) {
+                        throw GdxRuntimeException("Could not copy file: $child -> $other", e)
+                    }
+                }
+            }
+        }
     }
 
     init {
@@ -219,7 +252,7 @@ class DocumentHandle : FileHandle {
     }
 
     override fun mkdirs() {
-        TODO("mkdirs is not implemented yet")
+        throw GdxRuntimeException("Cannot mkdirs() a DocumentHandle")
     }
 
     override fun exists(): Boolean = invalidFileData == null && document.exists()
@@ -247,17 +280,24 @@ class DocumentHandle : FileHandle {
         if (!isDirectory) {
             if (dest.exists() && dest.isDirectory)
                 throw GdxRuntimeException("Destination exists but is a directory: $dest")
+            // Copy File
             read().copyTo(dest.write(false))
         } else {
-            if (dest.exists() && !dest.isDirectory)
+            if (!dest.exists()) {
+                dest.document = dest.invalidFileData!!.parent.createDirectory(dest.name())
+                    ?: throw GdxRuntimeException("Could not create directory: ${dest.name()}")
+                dest.invalidFileData = null
+            }
+            // Copy directory
+            if (!dest.isDirectory)
                 throw GdxRuntimeException("Destination exists but is a file: $dest")
-
-            TODO("copyTo is not implemented for directories yet")
+            copyDirectory(application, document, dest.document)
         }
     }
 
     override fun moveTo(dest: FileHandle) {
-        TODO("moveTo is not implemented yet")
+        copyTo(dest)
+        deleteDirectory()
     }
 
     override fun length(): Long = if (exists()) document.length() else 0L
