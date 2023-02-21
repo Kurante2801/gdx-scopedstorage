@@ -3,6 +3,7 @@ package kurante.gdxscopedstorage.util;
 import android.annotation.SuppressLint;
 import android.content.ContentUris;
 import android.content.Context;
+import android.content.CursorLoader;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -10,7 +11,6 @@ import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 
-import androidx.loader.content.CursorLoader;
 
 // https://gist.github.com/tatocaster/32aad15f6e0c50311626
 public class RealPathUtil {

@@ -3,11 +3,14 @@ package kurante.gdxscopedstorage
 import android.content.Intent
 import android.os.Build
 import android.provider.DocumentsContract
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.android.AndroidApplication
+import com.badlogic.gdx.files.FileHandle
 import kurante.gdxscopedstorage.request.ActivityRequest
 import kurante.gdxscopedstorage.request.DocumentTreeCallback
 import kurante.gdxscopedstorage.request.DocumentTreeRequest
 
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class ScopedStorageHandler(
     private val application: AndroidApplication,
     private val activityCode: Int,
@@ -29,6 +32,16 @@ class ScopedStorageHandler(
         request.onResult(resultCode, data)
     }
 
+    // This function is meant to be used in Kotlin
+    fun requestDocumentTree(makePersistent: Boolean = true, callback: (FileHandle?) -> Unit) {
+        requestDocumentTree(makePersistent, object : DocumentTreeCallback {
+            override fun run(handle: DocumentHandle?) {
+                callback(handle)
+            }
+        })
+    }
+
+    // This function is meant to be used in Java (hence the DocumentTreeCallback)
     fun requestDocumentTree(makePersistent: Boolean = true, callback: DocumentTreeCallback) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         var flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION

@@ -1,11 +1,10 @@
 package kurante.gdxscopedstorage.request
 
 import android.app.Activity
-import android.app.Application
 import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
 import com.badlogic.gdx.backends.android.AndroidApplication
-import kurante.gdxscopedstorage.handles.DocumentHandle
+import kurante.gdxscopedstorage.DocumentHandle
 
 class DocumentTreeRequest(
     override val requestCode: Int,
@@ -32,7 +31,7 @@ class DocumentTreeRequest(
     }
 }
 
-// Java interop
+// I don't know how to use a Java Runnable with arguments
 interface DocumentTreeCallback {
     fun run(handle: DocumentHandle?)
 }
