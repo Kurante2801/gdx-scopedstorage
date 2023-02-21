@@ -7,6 +7,7 @@ import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.utils.GdxRuntimeException
 import kurante.gdxscopedstorage.util.InvalidFileData
+import kurante.gdxscopedstorage.util.RealPathUtil
 import java.io.*
 
 @Suppress("unused")
@@ -82,8 +83,6 @@ class DocumentHandle : FileHandle {
             if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: $source")
             if (!dest.isDirectory) throw GdxRuntimeException("Destination of copyDirectory isn't a directory: $source")
 
-
-
             for (child in source.listFiles()) {
                 if (child.isDirectory) {
                     val other = dest.findFile(child.name!!) ?: dest.createDirectory(child.name!!)
@@ -113,6 +112,15 @@ class DocumentHandle : FileHandle {
 
     init {
         type = Files.FileType.Absolute
+    }
+
+    // This should only be used to display the path, and not use it!
+    fun realPath(): String {
+         val uri = if (invalidFileData != null)
+            Uri.parse(invalidFileData!!.path)
+        else
+            document.uri
+        return RealPathUtil.getRealPath(application, uri)
     }
 
     // You can feed this to DocumentHandle.valueOf
@@ -283,10 +291,13 @@ class DocumentHandle : FileHandle {
             // Copy File
             read().copyTo(dest.write(false))
         } else {
-            if (!dest.exists()) {
+            if (dest.invalidFileData != null) {
                 dest.document = dest.invalidFileData!!.parent.createDirectory(dest.name())
                     ?: throw GdxRuntimeException("Could not create directory: ${dest.name()}")
                 dest.invalidFileData = null
+            } else if (!dest.document.exists()) {
+                dest.document = dest.document.parentFile!!.createDirectory(dest.name())
+                    ?: throw GdxRuntimeException("Could not create directory: ${dest.name()}")
             }
             // Copy directory
             if (!dest.isDirectory)
@@ -317,7 +328,7 @@ class DocumentHandle : FileHandle {
     override fun hashCode(): Int = super.hashCode()
 
     override fun toString(): String {
-        return if (!exists())
+        return if (invalidFileData != null)
             Uri.decode(invalidFileData!!.path)
         else
             document.uri.path!!
