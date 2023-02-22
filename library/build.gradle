@@ -1,17 +1,11 @@
-buildscript {
-    ext.kotlinVersion = '1.8.0'
-
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.2.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
-    }
-}
-
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
     id 'maven-publish'
 }
+
+group = 'com.github.kurante2801'
+version = "$VERSION_NAME"
 
 android {
     namespace 'kurante.gdxscopedstorage'
@@ -31,10 +25,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
@@ -47,33 +38,35 @@ dependencies {
     api 'androidx.activity:activity-ktx:1.6.1'
 }
 
-publishing {
-    publications {
-        gpr(MavenPublication) {
-            groupId = "com.github.kurante2801"
-            artifactId = "gdx-scopedstorage"
-            version = "$VERSION_NAME"
-            artifact "$buildDir/outputs/aar/${project.name}-release.aar"
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                groupId = 'com.github.kurante2801'
+                artifactId = 'gdx-scopedstorage'
+                version = "$VERSION_NAME"
 
-            pom {
-                name = "libGDX Scoped Storage"
-                description = "Wrapper for Android's Storage Access Framework (SAF)"
-                url = "https://github.com/kurante2801/gdx-scopedstorage"
-                licenses {
-                    license {
-                        name = 'The MIT License'
-                        url = 'https://opensource.org/licenses/MIT'
+                pom {
+                    name = "libGDX Scoped Storage"
+                    description = "Wrapper for Android's Storage Access Framework (SAF)"
+                    url = "https://github.com/kurante2801/gdx-scopedstorage"
+                    licenses {
+                        license {
+                            name = 'The MIT License'
+                            url = 'https://opensource.org/licenses/MIT'
+                        }
                     }
-                }
-                developers {
-                    developer {
-                        id = 'kurante2801'
-                        name = 'Kurante'
-                        email = 'kurante2801@gmail.com'
+                    developers {
+                        developer {
+                            id = 'kurante2801'
+                            name = 'Kurante'
+                            email = 'kurante2801@gmail.com'
+                        }
                     }
-                }
-                scm {
-                    url = "https://github.com/kurante2801/gdx-scopedstorage.git"
+                    scm {
+                        url = "https://github.com/kurante2801/gdx-scopedstorage.git"
+                    }
                 }
             }
         }
