@@ -96,7 +96,9 @@ scopedHandler.requestDocumentTree(makePersistent, new DocumentTreeCallback() {
 ## Requesting READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE
 <b> I have not tried uploading apps to the Play Store with the permissions READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE</b><br>
 On Android 10 and below, it is possible to request the user permission to use the `File` API (the benefit of this is the use of regular `FileHandle` and massive performance increases).<br>
-If you want `ScopedStorageHandler` to handle this, you'll have to set your `minSdkVersion` to `23` (Android 6) and make your `AndroidLauncher` extend `AndroidComponentApplication`<br>
+If you want `ScopedStorageHandler` to handle this, you'll have to set your `minSdkVersion` to `23` (Android 6) and follow the steps below:
+
+First add `implementation 'androidx.activity:activity:1.6.1'` to your Android dependencies and make your `AndroidLauncher` extend `AndroidComponentApplication`<br>
 
 Then you'll have to create a `PermissionsLauncher` class and feed it to `ScopedStorageHandler` when creating it in `onCreate`.<br>
 The `AndroidComponentApplication` class is provided by this library.
