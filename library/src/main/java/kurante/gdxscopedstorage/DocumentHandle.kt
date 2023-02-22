@@ -10,7 +10,7 @@ import kurante.gdxscopedstorage.util.RealPathUtil
 import java.io.*
 
 // You could use this class on its own if you can supply your own uri inside
-// DocumentHandle.valueOf (and also copying RealPathUtil class)
+// DocumentHandle.valueOf (and also copying RealPathUtil class or deleting DocumentHandle.realPath)
 
 /**
  * Extension of FileHandle that overrides various functions to call the DocumentFile API

@@ -9,8 +9,9 @@ import androidx.annotation.RequiresApi
 import com.badlogic.gdx.backends.android.AndroidComponentApplication
 import kurante.gdxscopedstorage.launchers.ReadWriteCallback
 
-// This class allows you to get READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE permissions
-// on Android 10 and below
+/**
+ * This class allows you to get READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE permissions on Android 10 and below
+ */
 @RequiresApi(Build.VERSION_CODES.M)
 class PermissionsLauncher(private val application: AndroidComponentApplication) {
     private var callback: ((Boolean) -> Unit)? = null

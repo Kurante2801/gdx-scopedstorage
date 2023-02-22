@@ -16,6 +16,9 @@ import kurante.gdxscopedstorage.request.DocumentTreeCallback
 import kurante.gdxscopedstorage.request.DocumentTreeRequest
 import kurante.gdxscopedstorage.util.PermissionsLauncher
 
+/**
+ * Class that handles requesting Document Trees from the user with the startActivityForResult function.
+ */
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class ScopedStorageHandler {
     companion object {
@@ -54,14 +57,30 @@ class ScopedStorageHandler {
         request.onResult(resultCode, data)
     }
 
-    // This function is meant to be used in Kotlin
+    /**
+     * Starts an Intent.ACTION_OPEN_DOCUMENT_TREE. The callback will be called with
+     * a FileHandle that can be cast to DocumentHandle on success, or null on failure.
+     *
+     * If makePersistent is true, the directory the user specified
+     * will retain read and write permissions until the app is deleted or permission is revoked,
+     * you can make use of this by saving FileHandle.path() and creating a DocumentHandle with the
+     * DocumentHandle.valueOf function (passing the FileHandle.path() as second argument)
+     */
     fun requestDocumentTree(makePersistent: Boolean = true, callback: (FileHandle?) -> Unit) {
         requestDocumentTree(makePersistent, object : DocumentTreeCallback {
             override fun run(handle: DocumentHandle?) = callback(handle)
         })
     }
 
-    // This function is meant to be used in Java (hence the DocumentTreeCallback)
+    /**
+     * Starts an Intent.ACTION_OPEN_DOCUMENT_TREE. The callback will be called with
+     * a FileHandle that can be cast to DocumentHandle on success, or null on failure.
+     *
+     * If makePersistent is true, the directory the user specified
+     * will retain read and write permissions until the app is deleted or permission is revoked,
+     * you can make use of this by saving FileHandle.path() and creating a DocumentHandle with the
+     * DocumentHandle.valueOf function (passing the FileHandle.path() as second argument)
+     */
     fun requestDocumentTree(makePersistent: Boolean = true, callback: DocumentTreeCallback) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         var flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -73,6 +92,12 @@ class ScopedStorageHandler {
         launcher.startActivityForResult(intent, request.requestCode)
     }
 
+    /**
+     * Launches a RequestMultiplePermissions with the permissions READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE,
+     * this only works from Android 6 to Android 10 (both inclusive) and allows you to use Gdx.files.absolute.
+     *
+     * You can get an Absolute FileHandle out of a DocumentHandle by calling Gdx.files.absolute(documentHandle.realPath())
+     */
     @RequiresApi(Build.VERSION_CODES.M)
     fun requestReadWritePermissions(callback: (Boolean) -> Unit) {
         requestReadWritePermissions(object : ReadWriteCallback {
@@ -80,6 +105,12 @@ class ScopedStorageHandler {
         })
     }
 
+    /**
+     * Launches a RequestMultiplePermissions with the permissions READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE,
+     * this only works from Android 6 to Android 10 (both inclusive) and allows you to use Gdx.files.absolute.
+     *
+     * You can get an Absolute FileHandle out of a DocumentHandle by calling Gdx.files.absolute(documentHandle.realPath())
+     */
     @RequiresApi(Build.VERSION_CODES.M)
     fun requestReadWritePermissions(callback: ReadWriteCallback) {
         if (launcher !is ComponentLauncher)
