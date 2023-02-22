@@ -12,7 +12,9 @@ import java.io.*
 // You could use this class on its own if you can supply your own uri inside
 // DocumentHandle.valueOf (and also copying RealPathUtil class)
 
-@Suppress("unused")
+/**
+ * Extension of FileHandle that overrides various functions to call the DocumentFile API
+ */
 class DocumentHandle : FileHandle {
     private val context: Context
     var document: DocumentFile private set
@@ -24,6 +26,11 @@ class DocumentHandle : FileHandle {
         this.document = document
     }
 
+    /**
+     * Constructs a DocumentHandle that represents a file that has not yet been created.
+     *
+     * This constructor is called by DocumentHandle.child when it can't find the given file.
+     */
     constructor(context: Context, invalidFileData: InvalidFileData) : this(context, DocumentFile.fromSingleUri(context, Uri.EMPTY)!!) {
         this.invalidFileData = invalidFileData
     }
@@ -37,6 +44,11 @@ class DocumentHandle : FileHandle {
 
     companion object {
         // You can construct a DocumentHandle out of its path() function
+        /**
+         * Creates a DocumentHandle out of the given uri.
+         *
+         * You can obtain this uri via DocumentHandle.path() or using other Android native methods.
+         */
         @Throws(GdxRuntimeException::class)
         @JvmStatic
         fun valueOf(context: Context, uri: String): DocumentHandle {
@@ -60,8 +72,12 @@ class DocumentHandle : FileHandle {
             return result.joinToString("")
         }
 
-        // Due to SAF, we can't create any file with any arbitrary name
-        // so instead we create an empty txt file and rename it to what we want
+        /**
+         * Creates an empty TXT file with a random name, then renames it to the chosen name.
+         *
+         * This workaround exists because the DocumentFile API doesn't create files of arbitrary names
+         * if their extension doesn't match their mimeType (so we create a txt of mimeType text/plain)
+         */
         @JvmStatic
         fun createChild(parent: DocumentFile, name: String): DocumentFile? {
             // Ensure temp file doesn't exist already
@@ -80,6 +96,9 @@ class DocumentHandle : FileHandle {
             return created
         }
 
+        /**
+         * Recursively deletes all files inside a directory.
+         */
         @JvmStatic
         fun emptyDirectory(document: DocumentFile, preserveTree: Boolean) {
             for (child in document.listFiles()) {
@@ -90,6 +109,9 @@ class DocumentHandle : FileHandle {
             }
         }
 
+        /**
+         * Recursively copies all files of a directory into another one.
+         */
         @JvmStatic
         fun copyDirectory(context: Context, source: DocumentFile, dest: DocumentFile) {
             if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: ${source.uri}")
@@ -126,7 +148,11 @@ class DocumentHandle : FileHandle {
         type = Files.FileType.Absolute
     }
 
-    // On Android 10- you can use this with Gdx.files.absolute (after getting read and write permissions)
+    /**
+     * Calls the RealPathUtil class to parse the DocumentFile's uri.
+     *
+     * If using Android 10- you can use this with Gdx.files.absolute after getting read and write permissions
+     */
     fun realPath(): String {
          val uri = if (invalidFileData != null)
             Uri.parse(invalidFileData!!.path)
@@ -135,7 +161,9 @@ class DocumentHandle : FileHandle {
         return RealPathUtil.getRealPath(context, uri)
     }
 
-    // You can feed this to DocumentHandle.valueOf
+    /**
+     * Returns the encoded uri. This string can be used in DocumentHandle.valueOf
+     */
     override fun path(): String = invalidFileData?.path ?: document.uri.toString()
 
     override fun name(): String = invalidFileData?.name ?: document.name!!
@@ -271,7 +299,13 @@ class DocumentHandle : FileHandle {
     }
 
     override fun mkdirs() {
-        throw GdxRuntimeException("Cannot mkdirs() a DocumentHandle")
+        if (!exists()) {
+            val parent = invalidFileData?.parent ?: document.parentFile
+                ?: throw GdxRuntimeException("Could not get document's parent (needed to create document because it doesn't exist): ${path()}")
+            document = parent.createDirectory(name())
+                ?: throw GdxRuntimeException("Could not create directory: ${parent.uri}")
+            invalidFileData = null // We exist now, so we don't need to hold this anymore
+        }
     }
 
     override fun exists(): Boolean = invalidFileData == null && document.exists()
@@ -280,11 +314,11 @@ class DocumentHandle : FileHandle {
 
     override fun deleteDirectory(): Boolean = if (exists()) document.delete() else false
 
-    override fun emptyDirectory() { deleteDirectory() }
+    override fun emptyDirectory() = emptyDirectory(false)
 
     override fun emptyDirectory(preserveTree: Boolean) {
-        if (!isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: ${path()}")
         if (!exists()) return
+        if (!isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: ${path()}")
         emptyDirectory(document, preserveTree)
     }
 
@@ -319,13 +353,13 @@ class DocumentHandle : FileHandle {
 
     override fun moveTo(dest: FileHandle) {
         copyTo(dest)
-        deleteDirectory()
+        delete()
     }
 
     override fun length(): Long = if (exists()) document.length() else 0L
 
     override fun lastModified(): Long {
-        if (!exists()) throw GdxRuntimeException("Cannot get the last modifier time from a file that doesn't exist: ${path()}")
+        if (!exists()) throw GdxRuntimeException("Cannot get the last modifier time from a document that doesn't exist: ${path()}")
         return document.lastModified()
     }
 
