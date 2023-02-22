@@ -6,12 +6,11 @@ import androidx.documentfile.provider.DocumentFile
 import com.badlogic.gdx.Files
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.utils.GdxRuntimeException
-import kurante.gdxscopedstorage.util.InvalidFileData
 import kurante.gdxscopedstorage.util.RealPathUtil
 import java.io.*
 
 // You could use this class on its own if you can supply your own uri inside
-// DocumentHandle.valueOf (and also copying InvalidFileData and RealPathUtil classes)
+// DocumentHandle.valueOf (and also copying RealPathUtil class)
 
 @Suppress("unused")
 class DocumentHandle : FileHandle {
@@ -29,6 +28,13 @@ class DocumentHandle : FileHandle {
         this.invalidFileData = invalidFileData
     }
 
+    // Data needed to create a new DocumentHandle when calling DocumentHandle.child()
+    data class InvalidFileData(
+        val name: String,
+        val path: String,
+        val parent: DocumentFile,
+    )
+
     companion object {
         // You can construct a DocumentHandle out of its path() function
         @Throws(GdxRuntimeException::class)
@@ -36,12 +42,12 @@ class DocumentHandle : FileHandle {
         fun valueOf(context: Context, uri: String): DocumentHandle {
             try {
                 var document = DocumentFile.fromSingleUri(context, Uri.parse(uri))!!
-                // Convert to folder
+                // Convert to folder if possible
                 if (document.isDirectory)
                    document = DocumentFile.fromTreeUri(context, Uri.parse(uri))!!
                 return DocumentHandle(context, document)
             } catch (e: Exception) {
-                throw GdxRuntimeException("Could not create a DocumentHandle", e)
+                throw GdxRuntimeException("Could not create a DocumentHandle: $uri", e)
             }
         }
 
@@ -86,8 +92,8 @@ class DocumentHandle : FileHandle {
 
         @JvmStatic
         fun copyDirectory(context: Context, source: DocumentFile, dest: DocumentFile) {
-            if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: $source")
-            if (!dest.isDirectory) throw GdxRuntimeException("Destination of copyDirectory isn't a directory: $source")
+            if (!source.isDirectory) throw GdxRuntimeException("Source of copyDirectory isn't a directory: ${source.uri}")
+            if (!dest.isDirectory) throw GdxRuntimeException("Destination of copyDirectory isn't a directory: ${dest.uri}")
 
             for (child in source.listFiles()) {
                 if (child.isDirectory) {
@@ -102,14 +108,14 @@ class DocumentHandle : FileHandle {
 
                     try {
                         val output = context.contentResolver.openOutputStream(other.uri)
-                            ?: throw GdxRuntimeException("Could not open OutputStream: $other")
+                            ?: throw GdxRuntimeException("Could not open OutputStream: ${other.uri}")
                         val input = context.contentResolver.openInputStream(child.uri)
-                            ?: throw GdxRuntimeException("Could not open InputStream: $other")
+                            ?: throw GdxRuntimeException("Could not open InputStream: ${other.uri}")
                         input.use {
                             it.copyTo(output)
                         }
                     } catch (e: Exception) {
-                        throw GdxRuntimeException("Could not copy file: $child -> $other", e)
+                        throw GdxRuntimeException("Could not copy file: ${child.uri} -> ${other.uri}", e)
                     }
                 }
             }
@@ -120,7 +126,7 @@ class DocumentHandle : FileHandle {
         type = Files.FileType.Absolute
     }
 
-    // This should only be used to display the path, and not use it!
+    // On Android 10- you can use this with Gdx.files.absolute (after getting read and write permissions)
     fun realPath(): String {
          val uri = if (invalidFileData != null)
             Uri.parse(invalidFileData!!.path)
@@ -153,7 +159,7 @@ class DocumentHandle : FileHandle {
     }
 
     override fun file(): File {
-        throw GdxRuntimeException("Can't get the file of a Scoped Storage Document")
+        throw GdxRuntimeException("Can't get the file of a Scoped Storage Document: ${path()}")
     }
 
     override fun read(): InputStream {
@@ -164,9 +170,9 @@ class DocumentHandle : FileHandle {
         try {
             val input = context.contentResolver.openInputStream(document.uri)
             return input
-                ?: throw GdxRuntimeException("Could not open InputStream: $document")
+                ?: throw GdxRuntimeException("Could not open InputStream: ${document.uri}")
         } catch (e: FileNotFoundException) {
-            throw GdxRuntimeException("Error reading document: $document", e)
+            throw GdxRuntimeException("Error reading document: ${document.uri}", e)
         }
     }
 
@@ -199,24 +205,24 @@ class DocumentHandle : FileHandle {
     }
 
     override fun write(append: Boolean): OutputStream {
-        if (isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: $document")
+        if (isDirectory) throw GdxRuntimeException("Cannot open a stream to a directory: ${path()}")
 
         try {
             // This document doesn't exist, so we use the parent's document to write a sub document
             if (!exists()) {
                 val parent = invalidFileData?.parent ?: document.parentFile
-                    ?: throw GdxRuntimeException("Could not get document's parent (needed to write document because it doesn't exist): $this")
+                    ?: throw GdxRuntimeException("Could not get document's parent (needed to write document because it doesn't exist): ${path()}")
                 document = createChild(parent, name())
-                    ?: throw GdxRuntimeException("Could not create document to write to: $parent")
+                    ?: throw GdxRuntimeException("Could not create document to write to: ${parent.uri}")
                 invalidFileData = null // We exist now, so we don't need to hold this anymore
             }
 
             // https://developer.android.com/reference/android/os/ParcelFileDescriptor#parseMode(java.lang.String)
             val mode = if (append) "wa" else "rwt"
             return context.contentResolver.openOutputStream(document.uri, mode)
-                ?: throw GdxRuntimeException("Could not open OutputStream: $document")
+                ?: throw GdxRuntimeException("Could not open OutputStream: ${document.uri}")
         } catch (e: FileNotFoundException) {
-            throw GdxRuntimeException("Could not write to document: $document", e)
+            throw GdxRuntimeException("Could not write to document: ${document.uri}", e)
         }
     }
 
@@ -242,7 +248,7 @@ class DocumentHandle : FileHandle {
     override fun isDirectory(): Boolean = exists() && !document.isFile
 
     override fun child(name: String): FileHandle {
-        if (!isDirectory) throw GdxRuntimeException("Cannot get the child of a file: $document")
+        if (!isDirectory) throw GdxRuntimeException("Cannot get the child of a file: ${path()}")
 
         val file = document.findFile(name)
         if (file != null)
@@ -260,7 +266,7 @@ class DocumentHandle : FileHandle {
 
     override fun parent(): FileHandle {
         val parent = invalidFileData?.parent ?: document.parentFile
-            ?: throw GdxRuntimeException("Could not get parent document: $document")
+            ?: throw GdxRuntimeException("Could not get parent document: ${path()}")
         return DocumentHandle(context, parent)
     }
 
@@ -277,13 +283,13 @@ class DocumentHandle : FileHandle {
     override fun emptyDirectory() { deleteDirectory() }
 
     override fun emptyDirectory(preserveTree: Boolean) {
-        if (!isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: $document")
+        if (!isDirectory) throw GdxRuntimeException("Tried to empty a file as a directory!: ${path()}")
         if (!exists()) return
         emptyDirectory(document, preserveTree)
     }
 
     override fun copyTo(dest: FileHandle) {
-        if (!exists()) throw GdxRuntimeException("Cannot copyTo from a file that doesn't exist")
+        if (!exists()) throw GdxRuntimeException("Cannot copyTo from a file that doesn't exist: ${dest.path()}")
 
         if (dest !is DocumentHandle) {
             super.copyTo(dest)
@@ -292,21 +298,21 @@ class DocumentHandle : FileHandle {
 
         if (!isDirectory) {
             if (dest.exists() && dest.isDirectory)
-                throw GdxRuntimeException("Destination exists but is a directory: $dest")
+                throw GdxRuntimeException("Destination exists but is a directory: ${dest.path()}")
             // Copy File
             read().copyTo(dest.write(false))
         } else {
             if (dest.invalidFileData != null) {
                 dest.document = dest.invalidFileData!!.parent.createDirectory(dest.name())
-                    ?: throw GdxRuntimeException("Could not create directory: ${dest.name()}")
+                    ?: throw GdxRuntimeException("Could not create directory: ${dest.path()}")
                 dest.invalidFileData = null
             } else if (!dest.document.exists()) {
                 dest.document = dest.document.parentFile!!.createDirectory(dest.name())
-                    ?: throw GdxRuntimeException("Could not create directory: ${dest.name()}")
+                    ?: throw GdxRuntimeException("Could not create directory: ${dest.path()}")
             }
             // Copy directory
             if (!dest.isDirectory)
-                throw GdxRuntimeException("Destination exists but is a file: $dest")
+                throw GdxRuntimeException("Destination exists but is a file: ${dest.path()}")
             copyDirectory(context, document, dest.document)
         }
     }
@@ -319,7 +325,7 @@ class DocumentHandle : FileHandle {
     override fun length(): Long = if (exists()) document.length() else 0L
 
     override fun lastModified(): Long {
-        if (!exists()) throw GdxRuntimeException("Cannot get the last modifier time from a file that doesn't exist")
+        if (!exists()) throw GdxRuntimeException("Cannot get the last modifier time from a file that doesn't exist: ${path()}")
         return document.lastModified()
     }
 
