@@ -3,7 +3,6 @@ package kurante.gdxscopedstorage.request
 import android.app.Activity
 import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
-import com.badlogic.gdx.backends.android.AndroidApplication
 import kurante.gdxscopedstorage.DocumentHandle
 import kurante.gdxscopedstorage.launchers.ActivityLauncher
 
@@ -28,7 +27,7 @@ class DocumentTreeRequest(
         if (makePersistent)
             launcher.context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
 
-        callback.run(DocumentHandle(launcher.context, DocumentFile.fromTreeUri(launcher.context, uri)!!))
+        callback.run(DocumentHandle(DocumentFile.fromTreeUri(launcher.context, uri)!!))
     }
 }
 

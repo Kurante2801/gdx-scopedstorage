@@ -6,7 +6,7 @@ Implements the class `DocumentHandle` that extends from `FileHandle` and calls t
 
 Inside your main `build.gradle` add the following dependencies for the module `:android`
 ```groovy
-implementation "com.github.kurante2801:gdx-scopedstorage:1.0.0"
+implementation "com.github.kurante2801:gdx-scopedstorage:1.1.0"
 implementation "androidx.documentfile:documentfile:1.0.1"
 ```
 
